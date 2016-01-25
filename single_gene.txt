@@ -1,0 +1,2 @@
+ERS374227|SC|contig000001	Prodigal:2.60	CDS	2156	2659	.	+	0	ID=11940_2#1_00005;inference=ab initio prediction:Prodigal:2.60,similar to AA sequence:RefSeq:YP_006200678.1,protein motif:Cdd:COG4734,protein motif:Pfam:PF07275.5;locus_tag=11940_2#1_00005;product=conjugative transposon protein,Antirestriction protein,Antirestriction protein (ArdA);protein_id=gnl|SC|11940_2#1_00005
+
