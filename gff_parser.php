@@ -1,5 +1,7 @@
 <?php
 $myfile = fopen("11940_2#1.gff", "r") or die("Unable to open file!");
+//$myfile = fopen("11940_2#77.gff", "r") or die("Unable to open file!");
+//$myfile = fopen("PROKKA_01192015.gff", "r") or die("Unable to open file!");
 // Output one line until end-of-file
 
 //echo fread($myfile,filesize("11940_2#1.gff"));
