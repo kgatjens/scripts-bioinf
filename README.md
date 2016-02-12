@@ -3,6 +3,7 @@
 ##GFF format files Parser with PHP.
 
 Basic php script to parse a General Feature Format file. The result is something like this:
+```
 
 Array
 (
@@ -27,3 +28,5 @@ Array
                 )
 
         )
+```
+
