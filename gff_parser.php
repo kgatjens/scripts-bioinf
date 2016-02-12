@@ -1,17 +1,28 @@
 <?php
-
 $myfile = fopen("11940_2#1.gff", "r") or die("Unable to open file!");
 // Output one line until end-of-file
+
+//echo fread($myfile,filesize("11940_2#1.gff"));
+//echo fgets($myfile);
 $clean_array = array();
+$contig_array = array();
+$size_seq_line = 61;
 $i = 0;
+echo "<pre>";
+
 while(!feof($myfile)) {
-   if(substr(fgets($myfile),0,2) !== '##' || substr(fgets($myfile),0,2) !== '>E' ){
+   $line = fgets($myfile);
+   if(substr($line,0,2) !== '##' ){
    	
-	   	$pieces = explode("\t", fgets($myfile));
-	   	if(count($pieces)>2){
-	   		$i++;
+	   $pieces = explode("\t", $line);
+	   //print_r($pieces);
+	  
+	   	if(count($pieces)>1){
 	   		foreach ($pieces as $key => $value) {
-	   			if(preg_match('/;/',$value)){
+				$clean_array[$i]['contig']['name']  = $pieces[0];
+				$clean_array[$i]['contig']['start'] = $pieces[3];
+				$clean_array[$i]['contig']['end']   = $pieces[4];	   			
+				if(preg_match('/;/',$value)){
 	   				
 	   				$attributes = explode(";", $value);
 
@@ -20,12 +31,25 @@ while(!feof($myfile)) {
 	   				}
 
 	   			}else{
-	   				$clean_array[$i][]= $value; 
+	   				//$clean_array[$i][]= $value; 
 	   			}
+
 	   		}	
 	   	}else{
-	   		$clean_array['seq'][]	= fgets($myfile);	
+	   		//Format the sequense
+	   		if(strlen($line) != $size_seq_line){
+	   			$seq_name = str_replace(">","",str_replace("\n","",$line)) ;
+	   			
+	   		}else{
+	   			
+	   			$clean_array['seq'][$seq_name] = $clean_array['seq'][$seq_name].str_replace("\n","",$line);		
+
+	   		}
+	   		
 	   	} 	
+	   	$i++;
+   }else{
+
    }
 }
 
@@ -34,8 +58,7 @@ while(!feof($myfile)) {
 
 fclose($myfile);
 
-echo "<pre>";
-print_r($clean_array);
+print_r($clean_array['seq']);
 
 
 
