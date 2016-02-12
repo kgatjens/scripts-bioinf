@@ -10,12 +10,13 @@ $size_seq_line = 61;
 $i = 0;
 echo "<pre>";
 
+
+//main data array formater
 while(!feof($myfile)) {
    $line = fgets($myfile);
    if(substr($line,0,2) !== '##' ){
    	
 	   $pieces = explode("\t", $line);
-	   //print_r($pieces);
 	  
 	   	if(count($pieces)>1){
 	   		foreach ($pieces as $key => $value) {
@@ -37,7 +38,7 @@ while(!feof($myfile)) {
 	   		}	
 	   	}else{
 	   		//Format the sequense
-	   		if(strlen($line) != $size_seq_line){
+	   		if(strlen($line) != $size_seq_line){//currently dependding from the seq size
 	   			$seq_name = str_replace(">","",str_replace("\n","",$line)) ;
 	   			
 	   		}else{
@@ -53,12 +54,26 @@ while(!feof($myfile)) {
    }
 }
 
-//echo $clean_array['seq'];
-//echo preg_replace('/\s+/', '', $clean_array['seq']);
+//creates an array with the sequenses
+$sequenses = $clean_array['seq'];
+unset($clean_array['seq']);
+
+//loop for sequense distribution depending of positions
+foreach ($clean_array as $key => $value) {
+		
+	$contig = $value['contig']['name'];
+	
+	$startIndex = $value['contig']['start'];
+	
+	$length = abs($startIndex - $value['contig']['end']);
+
+	$clean_array[$key]['contig']['fragment'] = substr($sequenses[$contig], $startIndex, $length);	
+}
+
 
 fclose($myfile);
 
-print_r($clean_array['seq']);
+print_r($clean_array);
 
 
 
