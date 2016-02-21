@@ -88,7 +88,7 @@ function gff_importer_webform_submission_presave($node, &$submission) {
 
     $node = new stdClass();
     $node->title = $value['contig']['name'];
-    $node->type = "gff-content-type-1";
+    $node->type = "gff-content-type-1";//sequenses
     node_object_prepare($node);
     $node->uid = $user->uid; 
     $node->status = 1; //(1 or 0): published or not
@@ -102,6 +102,7 @@ function gff_importer_webform_submission_presave($node, &$submission) {
 
 
 }
+
 /**
  * Creates the sequense content type if not isset
  *
@@ -111,19 +112,97 @@ function gff_importer_webform_submission_presave($node, &$submission) {
  */
 function gff_importer_create_gff_content_type(){
 
-   $types = array(
-      'type' => 'sequenses',
-      'name' => st('Sequenses'),
-      'base' => 'node_content',
-      'description' => st("Tipo de contenido secuencia, la cual tiene información propia del fragmento relativo a una cepa"),
-      'custom' => 1,
-      'modified' => 1,
-      'locked' => 0,
-    );
+  $contentTypes = node_type_get_types();
 
-   $type = node_type_set_defaults($type);
-    node_type_save($type);
-    node_add_body_field($type);
+  if(!isset($contentTypes['sequenses'])){
+
+     $type = array(
+        'type' => 'sequense',
+        'name' => st('Sequense'),
+        'base' => 'node_content',
+        'description' => st("Tipo de contenido secuencia, la cual tiene información propia del fragmento relativo a una cepa"),
+        'custom' => 1,
+        'modified' => 1,
+        'locked' => 0,
+      );  
+
+      // $type = node_type_set_defaults($type);
+      // node_type_save($types;
+      // node_add_body_field($type);   
+
+     $contig_name = array(
+        'field_name'  = 'contig_name',
+        'description' = 'Nombre del contig o fragmento de la secuencia',
+        'label'       = 'Nombre de contig/fragmento de secuencia',
+        'type'        = 'textfield',
+      );
+
+     gff_importer_create_sequense_field($contig_name);
+
+     $contig_name = array(
+        'field_name'  = 'fragment_start',
+        'description' = '',
+        'label'       = '',
+        'type'        = 'textfield',
+      );
+
+     gff_importer_create_sequense_field($contig_name);
+
+     $contig_name = array(
+        'field_name'  = 'fragment_end',
+        'description' = '',
+        'label'       = '',
+        'type'        = 'textfield',
+      );
+
+     $contig_name = array(
+        'field_name'  = 'fragment',
+        'description' = '',
+        'label'       = '',
+        'type'        = 'textfield',
+      );
+
+     $contig_name = array(
+        'field_name'  = 'fragment_start',
+        'description' = '',
+        'label'       = '',
+        'type'        = 'textfield',
+      );
+
+
+
+  }
+}
+
+/**
+ * Creates fields for content type *sequense* if not isset
+ *
+ * 
+ * 
+ * @see 
+ */
+function gff_importer_create_sequense_field($field = array()){
+
+  //  Verify the field does not already exist.
+  if ( field_info_field( $field['field_name'] ) ) {
+      return;
+  }
+
+  $instance = array(
+    'field_name' => $field[ 'field_name' ],
+    'entity_type' => 'node',
+    'bundle' => 'sequense',
+    'description' => $field['description'],
+    'label' => $field['label'],
+    'widget' => array(
+        'type' => $field['type'],
+    ),
+  );
+
+}
+
+
+  
 
   exit;
 }
