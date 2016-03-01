@@ -1,0 +1,353 @@
+<?php
+  /**
+   * Implements hook_webform_submission_presave()
+   *
+   * Edit some webform form values before saving to database.
+   * This will import a *.gff file, parse it and creates node depending of his info
+   * @see http://api.drupalize.me/api/drupal/function/hook_webform_submission_presave/6
+   */
+  function gff_importer_webform_submission_presave($node, &$submission) { 
+    
+    $fileInfo = file_load($_POST['submitted']['file']['fid']);
+
+    $filepath = drupal_realpath($fileInfo->uri);
+
+    $file = fopen($filepath, "r") or die("Unable to open file!");
+
+    $contig_array = array();
+    $size_seq_line = 61;//****
+    $i = 0;
+
+    //gff_importer_sequense_cleaner();echo 'Cleaned!';exit;
+
+    //main data array formater
+    while(!feof($file)) {
+       $line = fgets($file);
+       if(substr($line,0,2) !== '##' ){
+        
+         $pieces = explode("\t", $line);
+        
+          if(count($pieces)>1){
+            foreach ($pieces as $key => $value) {
+            $clean_array[$i]['contig']['name']   = $pieces[0];
+            $clean_array[$i]['contig']['source'] = $pieces[1];
+            $clean_array[$i]['contig']['cds']    = $pieces[2];
+            $clean_array[$i]['contig']['start']  = $pieces[3];
+            $clean_array[$i]['contig']['end']    = $pieces[4];         
+            if(preg_match('/;/',$value)){
+                
+                $attributes = explode(";", $value);
+
+                foreach ($attributes as $attri_key => $attri_value) {
+
+                  $pieces = explode("=", $attri_value);
+ 
+                  $clean_array[$i]['attributes'][$pieces[0]]= $pieces[1];
+                }
+
+              }else{
+                //$clean_array[$i][]= $value; 
+              }
+
+            } 
+          }else{
+            //Format the sequense
+            if(strlen($line) != $size_seq_line){//currently dependding from the seq size
+              $seq_name = str_replace(">","",str_replace("\n","",$line)) ;
+              
+            }else{
+              $clean_array['seq'][$seq_name] = isset($clean_array['seq'][$seq_name]) ? $clean_array['seq'][$seq_name].str_replace("\n","",$line) : ''; 
+            }
+          }   
+          $i++;
+       }else{
+
+       }
+    }
+
+    //creates an array with the sequenses
+    $sequenses = $clean_array['seq'];
+    unset($clean_array['seq']);
+
+    //loop for sequense distribution depending of positions
+    global $user;
+
+    gff_importer_create_gff_content_type();
+
+    // echo "<pre>";
+    // print_r($clean_array);
+    // exit;    
+
+    foreach ($clean_array as $key => $value) {
+        
+      $contig = $value['contig']['name'];
+
+      $source = $value['contig']['source'];
+
+      $cds = $value['contig']['cds'];
+      
+      $startIndex = $value['contig']['start'];
+      
+      $length = abs($startIndex - $value['contig']['end']);
+
+      $attribute_id = !empty($value['attributes']['ID']) ? $value['attributes']['ID'] : '';
+      $inference    = !empty($value['attributes']['inference']) ? $value['attributes']['inference'] : '';
+      $locus_tag    = !empty($value['attributes']['locus_tag']) ? $value['attributes']['locus_tag'] : '';
+      $product      = !empty($value['attributes']['product']) ? $value['attributes'][['product']] : '';
+      $note         = !empty($value['attributes']['note']) ? $value['attributes']['note'] : '';
+      $eC_number    = !empty($value['attributes']['eC_number']) ? $value['attributes']['eC_number'] : '';
+      $gene         = !empty($value['attributes']['gene']) ? $value['attributes']['gene'] : '';
+      $protein_id   = !empty($value['attributes']['protein_id']) ? $value['attributes']['protein_id'] : '';
+
+      $fragment = $clean_array[$key]['contig']['fragment'] = substr($sequenses[$contig], $startIndex, $length); 
+
+      $node = new stdClass();
+      $node->title = $contig;
+      $node->type = 'sequense';//sequenses
+      $node->contig_name[LANGUAGE_NONE][0]['value']    = $contig;
+      $node->source[LANGUAGE_NONE][0]['value']         = $source;
+      $node->cds[LANGUAGE_NONE][0]['value']            = $cds;
+      $node->fragment_start[LANGUAGE_NONE][0]['value'] = $startIndex;
+      $node->fragment_end[LANGUAGE_NONE][0]['value']  = $startIndex + $length;
+      $node->fragment[LANGUAGE_NONE][0]['value']       = $fragment;
+
+      $node->attribute_id[LANGUAGE_NONE][0]['value']   = $attribute_id;
+      $node->inference[LANGUAGE_NONE][0]['value']      = $inference;
+      $node->locus_tag[LANGUAGE_NONE][0]['value']      = $locus_tag;
+      $node->product[LANGUAGE_NONE][0]['value']        = $product;
+      $node->note[LANGUAGE_NONE][0]['value']           = $note;
+      $node->eC_number[LANGUAGE_NONE][0]['value']      = $eC_number;
+      $node->gene[LANGUAGE_NONE][0]['value']           = $gene;
+      $node->protein_id[LANGUAGE_NONE][0]['value']     = $protein_id;
+
+      node_object_prepare($node);
+      $node->uid = $user->uid; 
+      $node->status = 1; //(1 or 0): published or not
+      $node->promote = 0; //(1 or 0): promoted to front page
+      $node->comment = 0; // 0 = comments disabled, 1 = read only, 2 = read/write 
+
+      $node = node_submit($node); // Prepare node for saving
+      node_save($node);
+    }
+    fclose($file);
+//   $node = node_load(29122);
+
+// echo "<pre>";
+// print_r($node);
+// exit;
+  }
+
+  /**
+   * Delete all nodes from type: 'sequense'
+   *
+   * 
+   * 
+   * return void 
+   */
+  function gff_importer_sequense_cleaner(){
+    
+      $result= db_query("SELECT nid FROM {node} AS n WHERE n.type = 'sequense'");
+      
+      foreach ($result as $record) {
+        node_delete($record->nid);
+      }
+  }
+
+  /**
+   * Creates the sequense content type if not isset
+   *
+   * 
+   * 
+   * return void 
+   */
+  function gff_importer_create_gff_content_type(){
+
+    $contentTypes = node_type_get_types();
+
+    if(!isset($contentTypes['sequenses'])){
+
+       $type = array(
+          'type' => 'sequense',
+          'name' => 'Sequense',
+          'base' => 'node_content',
+          'description' => "Tipo de contenido secuencia, la cual tiene información propia del fragmento relativo a una cepa",
+          'custom' => 1,
+          'modified' => 1,
+          'locked' => 0
+        );  
+
+        $type = node_type_set_defaults($type);
+        node_type_save($type);
+        // node_add_body_field($type);   
+
+        $contig_name = array(
+          'field_name'  => 'contig_name',
+          'description' => '',
+          'label'       => 'Nombre de contig/fragmento de secuencia',
+          'type'        => 'text'
+        );
+
+        gff_importer_create_sequense_field($contig_name);
+
+        $source = array(
+          'field_name'  => 'source',
+          'description' => '',
+          'label'       => 'Fuente de extración de datos',
+          'type'        => 'text'
+        );
+
+        gff_importer_create_sequense_field($source);
+
+        $cds = array(
+          'field_name'  => 'cds',
+          'description' => '',
+          'label'       => 'Tipo de región codificante',
+          'type'        => 'text'
+        );
+
+        gff_importer_create_sequense_field($cds);
+
+        $fragment_start = array(
+          'field_name'  => 'fragment_start',
+          'description' => '',
+          'label'       => 'Valor donde da inicio el fragmento',
+          'type'        => 'number_integer',
+        );
+
+        gff_importer_create_sequense_field($fragment_start);
+
+        $fragment_end = array(
+          'field_name'  => 'fragment_end',
+          'description' => '',
+          'label'       => 'Valor donde finaliza el fragmento',
+          'type'        => 'number_integer',
+        );
+
+        gff_importer_create_sequense_field($fragment_end);
+
+        $fragment = array(
+          'field_name'  => 'fragment',
+          'description' => '',
+          'label'       => 'Fragmento',
+          'type'        => 'text_long',
+        );
+
+        gff_importer_create_sequense_field($fragment);
+
+        $attribute_id = array(
+          'field_name'  => 'attribute_id',
+          'description' => '',
+          'label'       => 'Identificador',
+          'type'        => 'text',
+        );
+
+        gff_importer_create_sequense_field($attribute_id);
+
+         $inference = array(
+          'field_name'  => 'inference',
+          'description' => '',
+          'label'       => 'Inferencia',
+          'type'        => 'text',
+        );
+
+        gff_importer_create_sequense_field($inference);
+
+         $locus_tag = array(
+          'field_name'  => 'locus_tag',
+          'description' => '',
+          'label'       => 'Identificador de genoma(locus_tag)',
+          'type'        => 'text',
+        );
+
+        gff_importer_create_sequense_field($locus_tag);
+
+         $product = array(
+          'field_name'  => 'product',
+          'description' => '',
+          'label'       => 'Producto o resultante',
+          'type'        => 'text',
+        );
+
+        gff_importer_create_sequense_field($product);
+
+         $note = array(
+          'field_name'  => 'note',
+          'description' => '',
+          'label'       => 'Nota o comentario adicional',
+          'type'        => 'text',
+        );
+
+        gff_importer_create_sequense_field($note);
+
+        $eC_number = array(
+          'field_name'  => 'ec_number',
+          'description' => '',
+          'label'       => 'Clasificación númerica de enzimas',
+          'type'        => 'text',
+        );
+
+        gff_importer_create_sequense_field($eC_number);
+
+        $gene = array(
+          'field_name'  => 'gene',
+          'description' => '',
+          'label'       => 'Gen',
+          'type'        => 'text',
+        );
+
+        gff_importer_create_sequense_field($gene);
+
+         $protein_id = array(
+          'field_name'  => 'protein_id',
+          'description' => '',
+          'label'       => 'Identificador de la proteína',
+          'type'        => 'text',
+        );
+
+        gff_importer_create_sequense_field($protein_id);
+
+     }
+  }
+
+  /**
+   * Creates fields for content type *sequense* if not isset
+   *
+   * 
+   * 
+   * @see 
+   */
+  function gff_importer_create_sequense_field($field_data = array()){
+
+    
+    $field_name = $field_data['field_name'];
+
+    //Verify the field does not already exist.
+    if ( field_info_field( $field_name ) ) {
+        return;
+    }
+
+    //  Create the field definition array.
+    $field = array(
+        'field_name' => $field_name,
+        'type' => $field_data['type'],
+    );
+    //  Create the field.
+    $field = field_create_field( $field );
+
+    //  Create the field instance definition array.
+    $instance = array(
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'bundle' => 'sequense',
+        'description' => 'A field for testing the programmatic creation of new fields.',
+        'label' => $field_data['label'],
+        'widget' => array(
+            'type' => 'textfield'
+        ),
+    );
+
+    //  Create an instance of the field and bind it to the bundle.
+    field_create_instance($instance);
+  }
+
+
